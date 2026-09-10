@@ -1,6 +1,5 @@
 const express = require('express');
 const path = require('path');
-const multer = require('multer');
 const fs = require('fs');
 const Database = require('better-sqlite3');
 const crypto = require('crypto');
@@ -20,8 +19,6 @@ const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, 'site');
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 fs.mkdirSync(DATA_DIR, { recursive: true });
-fs.mkdirSync(path.join(DATA_DIR,'uploads'), { recursive: true });
-const upload = multer({dest:path.join(DATA_DIR,'uploads'), limits:{fileSize:25*1024*1024}});
 const db = new Database(path.join(DATA_DIR, 'pmc.sqlite'));
 db.exec(`CREATE TABLE IF NOT EXISTS app_state (id INTEGER PRIMARY KEY CHECK(id=1), state TEXT NOT NULL, updated_at TEXT NOT NULL)`);
 db.exec(`CREATE TABLE IF NOT EXISTS otp (username TEXT PRIMARY KEY, code TEXT NOT NULL, expires_at INTEGER NOT NULL, purpose TEXT DEFAULT 'login', mobile TEXT)`);
@@ -32,11 +29,6 @@ const putState = db.prepare('INSERT INTO app_state(id,state,updated_at) VALUES(1
 function adminPassword(){return process.env.ADMIN_PASSWORD || 'admin123';}
 function jsonState(){const row=getState.get(); if(!row) return defaultState; try{return JSON.parse(row.state)}catch{return defaultState}}
 app.use(express.json({limit:'5mb'}));
-function aiKey(){return process.env.AI_API_KEY || process.env.OPENAI_API_KEY || ''}
-async function aiResponses(input,model){const key=aiKey();if(!key)throw new Error('AI_API_KEY Render Environment Variable में set नहीं है।');const r=await fetch(process.env.AI_BASE_URL||'https://api.openai.com/v1/responses',{method:'POST',headers:{Authorization:'Bearer '+key,'Content-Type':'application/json'},body:JSON.stringify({model:model||process.env.AI_MODEL||'gpt-5.6-luna',input})});const j=await r.json();if(!r.ok)throw new Error(j.error?.message||('AI API HTTP '+r.status));return j}
-function responseText(j){if(j.output_text)return j.output_text;let out='';for(const o of(j.output||[]))for(const c of(o.content||[]))if(typeof c.text==='string')out+=c.text;return out}
-function extractJson(s){const t=String(s||'').trim().replace(/^```json\s*/i,'').replace(/```$/,'').trim();try{return JSON.parse(t)}catch{const a=t.indexOf('{'),b=t.lastIndexOf('}');if(a>=0&&b>a)return JSON.parse(t.slice(a,b+1));throw new Error('AI ने valid JSON नहीं लौटाया।')}}
-app.post('/api/ai/extract',upload.single('file'),async(req,res)=>{let filePath='';try{if(!req.file)return res.status(400).json({ok:false,message:'File missing'});filePath=req.file.path;const which=Number(req.body.which||1),template=JSON.parse(req.body.template||'[]'),buf=fs.readFileSync(filePath),mime=req.file.mimetype||'',name=req.file.originalname||'document';let extracted='';if(/sheet|excel|csv/i.test(mime)||/\.(xlsx?|csv)$/i.test(name)){const XLSX=require('xlsx');const wb=XLSX.read(buf,{type:'buffer'});extracted=wb.SheetNames.map(n=>'--- '+n+' ---\n'+XLSX.utils.sheet_to_csv(wb.Sheets[n])).join('\n')}else if(/word|document/i.test(mime)||/\.docx?$/i.test(name)){try{const mammoth=require('mammoth');extracted=(await mammoth.extractRawText({buffer:buf})).value}catch{}}else if(/pdf/i.test(mime)||/\.pdf$/i.test(name)){try{const pdfParse=require('pdf-parse');extracted=(await pdfParse(buf)).text||''}catch{}}else if(/^text\//.test(mime)||/\.txt$/i.test(name))extracted=buf.toString('utf8');const templateText=template.map(r=>`${r[0]} | ${r[1]} | ${r[2]}`).join('\n');const prompt=`You are an expert data-entry assistant for an Indian Price Collection Performa. Read the uploaded document and map values into the TARGET TEMPLATE. Do not invent values; use null if missing. Keep target row order and names. Return ONLY JSON: {"rows":[[sno,name,unit,market1,market2,market3,retailAverage${which===1?',wholesale':''}]],"tehsil":"","block":"","matched":0,"notes":""}. Retail average is the arithmetic mean of available market values. Identify Tehsil and Block if visible. TARGET TEMPLATE:\n${templateText}\nDOCUMENT TEXT:\n${extracted.slice(0,120000)}`;const content=[{type:'input_text',text:prompt}];if(!extracted&&/^image\//.test(mime))content.push({type:'input_image',image_url:`data:${mime};base64,${buf.toString('base64')}`});else if(!extracted&&/pdf/i.test(mime))content.push({type:'input_file',filename:name,file_data:`data:application/pdf;base64,${buf.toString('base64')}`});const j=await aiResponses([{role:'user',content}],process.env.AI_MODEL||'gpt-5.6-luna');const parsed=extractJson(responseText(j));const rows=Array.isArray(parsed.rows)?parsed.rows:[];res.json({ok:true,rows,matched:Number(parsed.matched||rows.length),tehsil:parsed.tehsil||req.body.tehsil||'',block:parsed.block||req.body.block||'',rawText:extracted.slice(0,30000),explanation:parsed.notes||''})}catch(e){res.status(500).json({ok:false,message:e.message})}finally{if(filePath)try{fs.unlinkSync(filePath)}catch{}}});
 app.use(express.static(PUBLIC_DIR));
 
 function fetchJson(url){return new Promise((resolve,reject)=>{const lib=url.startsWith('https://')?https:http;const req=lib.get(url,{headers:{'User-Agent':'PMC-Internet-Live/1.0'}},r=>{let b='';r.on('data',c=>b+=c);r.on('end',()=>{if(r.statusCode>=200&&r.statusCode<300){try{resolve(JSON.parse(b))}catch(e){reject(e)}}else reject(new Error('HTTP '+r.statusCode))})});req.on('error',reject);req.setTimeout(12000,()=>{req.destroy(new Error('timeout'))})})}
