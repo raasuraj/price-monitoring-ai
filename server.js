@@ -16,7 +16,7 @@ app.use((req,res,next)=>{
   next();
 });
 const PORT = process.env.PORT || 3000;
-const PUBLIC_DIR = path.join(__dirname, 'site');
+const PUBLIC_DIR = _dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 fs.mkdirSync(DATA_DIR, { recursive: true });
 const db = new Database(path.join(DATA_DIR, 'pmc.sqlite'));
