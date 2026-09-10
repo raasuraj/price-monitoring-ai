@@ -2,9 +2,11 @@ services:
   - type: web
     name: pmc-internet-live
     runtime: node
-    buildCommand: npm install --no-audit --no-fund
+    buildCommand: npm install
     startCommand: npm start
     envVars:
+      - key: NODE_VERSION
+        value: "22.0.0"
       - key: DATA_DIR
         value: /var/data
       - key: ADMIN_PASSWORD
