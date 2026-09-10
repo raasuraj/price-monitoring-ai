@@ -29,6 +29,17 @@ const putState = db.prepare('INSERT INTO app_state(id,state,updated_at) VALUES(1
 function adminPassword(){return process.env.ADMIN_PASSWORD || 'admin123';}
 function jsonState(){const row=getState.get(); if(!row) return defaultState; try{return JSON.parse(row.state)}catch{return defaultState}}
 app.use(express.json({limit:'5mb'}));
+
+// Serve the dashboard explicitly from the Render service root.
+// This avoids a 404 when Render/proxies request "/" before static/fallback routing.
+app.get('/', (req, res) => {
+  const indexFile = path.join(PUBLIC_DIR, 'index.html');
+  if (!fs.existsSync(indexFile)) {
+    return res.status(500).send('PMC dashboard file missing: site/index.html');
+  }
+  res.sendFile(indexFile);
+});
+
 app.use(express.static(PUBLIC_DIR));
 
 function fetchJson(url){return new Promise((resolve,reject)=>{const lib=url.startsWith('https://')?https:http;const req=lib.get(url,{headers:{'User-Agent':'PMC-Internet-Live/1.0'}},r=>{let b='';r.on('data',c=>b+=c);r.on('end',()=>{if(r.statusCode>=200&&r.statusCode<300){try{resolve(JSON.parse(b))}catch(e){reject(e)}}else reject(new Error('HTTP '+r.statusCode))})});req.on('error',reject);req.setTimeout(12000,()=>{req.destroy(new Error('timeout'))})})}
@@ -48,7 +59,12 @@ async function sendSmsOtp(mobile,code){
   return {provider:'twilio'};
 }
 
-app.get('/api/health',(req,res)=>res.json({ok:true,service:'PMC Internet Live',time:new Date().toISOString()}));
+app.get('/api/health',(req,res)=>res.json({
+  ok:true,
+  service:'PMC Internet Live',
+  dashboardExists:fs.existsSync(path.join(PUBLIC_DIR,'index.html')),
+  time:new Date().toISOString()
+}));
 app.post('/api/login',(req,res)=>{const {username,password}=req.body||{}; if(username==='admin' && password===adminPassword()) return res.json({ok:true}); const u=db.prepare('SELECT * FROM users WHERE username=?').get(String(username||'').trim()); if(u&&verifyPassword(password,u.password_hash)) return res.json({ok:true}); res.status(401).json({ok:false,message:'Invalid username/password'});});
 app.post('/api/register/request-otp',async(req,res)=>{const {username,password}=req.body||{};const mobile=normalizeMobile(req.body?.mobile);if(!username||!mobile||!password||String(password).length<6)return res.status(400).json({ok:false,message:'Username, valid mobile and 6+ character password required'});if(username==='admin')return res.status(409).json({ok:false,message:'This username is reserved'});if(db.prepare('SELECT 1 FROM users WHERE username=? OR mobile=?').get(String(username).trim(),mobile))return res.status(409).json({ok:false,message:'Username or mobile already registered'});const code=String(crypto.randomInt(100000,1000000));db.prepare('INSERT INTO otp(username,code,expires_at,purpose,mobile) VALUES(?,?,?,?,?) ON CONFLICT(username) DO UPDATE SET code=excluded.code,expires_at=excluded.expires_at,purpose=excluded.purpose,mobile=excluded.mobile').run(String(username).trim(),code,Date.now()+5*60*1000,'register',mobile);try{const sms=await sendSmsOtp(mobile,code);res.json({ok:true,message:'OTP आपके mobile number पर भेज दिया गया है।',demoOtp:sms.demoOtp})}catch(e){res.status(502).json({ok:false,message:'SMS OTP भेजने में समस्या: '+e.message})}});
 app.post('/api/register/verify',(req,res)=>{const {username,password,otp}=req.body||{};const mobile=normalizeMobile(req.body?.mobile);const u=String(username||'').trim();const row=db.prepare('SELECT * FROM otp WHERE username=?').get(u);if(!row||row.purpose!=='register'||row.mobile!==mobile||row.code!==String(otp)||row.expires_at<=Date.now())return res.status(401).json({ok:false,message:'OTP गलत या expired है।'});if(db.prepare('SELECT 1 FROM users WHERE username=? OR mobile=?').get(u,mobile))return res.status(409).json({ok:false,message:'Username or mobile already registered'});db.prepare('INSERT INTO users(username,mobile,password_hash,created_at) VALUES(?,?,?,datetime(\'now\'))').run(u,mobile,makePasswordHash(password));db.prepare('DELETE FROM otp WHERE username=?').run(u);res.json({ok:true,message:'Registration successful. अब login कर सकते हैं।'});});
