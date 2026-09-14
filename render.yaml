@@ -5,8 +5,6 @@ services:
     buildCommand: npm install
     startCommand: npm start
     envVars:
-      - key: NODE_VERSION
-        value: "22.0.0"
       - key: DATA_DIR
         value: /var/data
       - key: ADMIN_PASSWORD
@@ -21,6 +19,12 @@ services:
         sync: false
       - key: SHOW_DEMO_OTP
         value: "false"
+      - key: AI_API_KEY
+        sync: false
+      - key: AI_MODEL
+        value: gpt-5.6-luna
+      - key: AI_BASE_URL
+        value: https://api.openai.com/v1/responses
     disk:
       name: pmc-data
       mountPath: /var/data
