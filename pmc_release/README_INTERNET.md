@@ -6,7 +6,7 @@ Frontend: GitHub Pages
 Backend: Render/Node.js
 Database: SQLite on persistent disk
 
-Default backend URL: https://price-monitoring-ai-2.onrender.com
+Default backend URL: https://pmc-internet-live.onrender.com
 
 यदि backend का URL अलग हो तो website में backend URL/API setting से बदल सकते हैं या URL में `?api=https://YOUR-BACKEND-URL` देकर खोल सकते हैं।
 

@@ -11,14 +11,14 @@
 5. Service का नाम `pmc-internet-live` रखें।
 6. `ADMIN_PASSWORD` में अपना नया admin password डालें।
 7. Deploy करें।
-8. Deploy होने के बाद URL सामान्यतः `https://price-monitoring-ai-2.onrender.com` होगा। अगर Render कोई दूसरा URL देता है तो website में Settings/API Backend URL में वही URL डालें।
+8. Deploy होने के बाद URL सामान्यतः `https://pmc-internet-live.onrender.com` होगा। अगर Render कोई दूसरा URL देता है तो website में Settings/API Backend URL में वही URL डालें।
 
 ## 2. GitHub Pages frontend
 
 आपकी existing GitHub Pages URL:
 https://raasuraj.github.io/price-monitoring-Int/
 
-अब default backend URL `https://price-monitoring-ai-2.onrender.com` रखा गया है। इसलिए Render service इसी नाम से deploy करना सबसे आसान है।
+अब default backend URL `https://pmc-internet-live.onrender.com` रखा गया है। इसलिए Render service इसी नाम से deploy करना सबसे आसान है।
 
 ## 3. जरूरी सुरक्षा
 
