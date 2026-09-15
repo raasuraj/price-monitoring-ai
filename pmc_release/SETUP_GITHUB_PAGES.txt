@@ -1,0 +1,19 @@
+PRICE MONITORING AI — MOBILE + COMPUTER SHARED DATA
+
+Your GitHub Pages URL is the FRONTEND only:
+https://raasuraj.github.io/price-monitoring-Int/
+
+The included server.js is the BACKEND. Deploy it to Render/Railway/VPS.
+
+QUICK TEST AFTER BACKEND DEPLOYMENT
+1. Copy backend URL, e.g. https://YOUR-SERVICE.onrender.com
+2. Open this once in Chrome on computer:
+   https://raasuraj.github.io/price-monitoring-Int/?api=https://YOUR-SERVICE.onrender.com
+3. Login and change a price.
+4. Open the same GitHub Pages link on mobile.
+5. Refresh. The same server-saved price should appear.
+
+IMPORTANT
+- For permanent data on Render, use persistent storage for /var/data or PostgreSQL/Supabase.
+- Do not put passwords/API keys in the GitHub Pages code.
+- The backend has CORS enabled so the GitHub Pages frontend can call it.
